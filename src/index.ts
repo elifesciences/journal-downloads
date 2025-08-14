@@ -1,3 +1,9 @@
+const config = {
+  s3: {
+    bucket: "prod-elife-published"
+  }
+}
+
 Bun.serve({
   // `routes` requires Bun v1.2.3+
   routes: {
@@ -9,14 +15,15 @@ Bun.serve({
         return new Response("Not Found", { status: 404 });
       }
 
-
       if (cdnUri.host !== "cdn.elifesciences.org") {
         return new Response("Not Acceptable", { status: 406 });
       }
 
       const canonicalUri = cdnUri.searchParams.get('canonicalUri');
 
-      const response = new Response(`Decode ${req.params.id} to CDN uri ${cdnUri} and return as ${req.params.filename} with canonicalUri of ${canonicalUri}`);
+      const s3Path = `s3://${config.s3.bucket}${cdnUri.pathname}`;
+
+      const response = new Response(`Decode ${req.params.id} to CDN uri ${cdnUri} and get content from ${s3Path} and return as ${req.params.filename} with canonicalUri of ${canonicalUri}`);
       response.headers.set('Link', `<${canonicalUri}>; rel="canonical"`);
       // response.headers.set('Content-Disposition', `attachment; filename="${req.params.filename}"`)
       return response;
