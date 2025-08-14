@@ -17,8 +17,8 @@ Bun.serve({
       const canonicalUri = cdnUri.searchParams.get('canonicalUri');
 
       const response = new Response(`Decode ${req.params.id} to CDN uri ${cdnUri} and return as ${req.params.filename} with canonicalUri of ${canonicalUri}`);
-
-      response.headers.set('Link', `<${canonicalUri}>; rel="canonical"`)
+      response.headers.set('Link', `<${canonicalUri}>; rel="canonical"`);
+      // response.headers.set('Content-Disposition', `attachment; filename="${req.params.filename}"`)
       return response;
     },
   },
