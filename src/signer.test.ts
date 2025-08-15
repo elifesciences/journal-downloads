@@ -1,5 +1,4 @@
 import { describe, it, expect } from "bun:test"
-import { routes } from "./routes";
 import { createUrlHash, verifyUrl } from "./signer";
 
 describe('signer', () => {
