@@ -1,9 +1,7 @@
 import type { BunRequest, S3Client } from "bun";
 import { verifyUrl } from "./signer";
 
-const uriSignerSecret = process.env.SECRET
-
-export const createRoutes = (s3Client: S3Client) => ({
+export const createRoutes = (s3Client: S3Client, uriSignerSecret?: string) => ({
   "/download/:id/:filename": async (req) => {
     const url = URL.parse(req.url);
     if (!url) {

@@ -92,4 +92,20 @@ describe('routes', async () => {
     expect(res.headers.get("Link")).toBe(`<http://elifesciences.com/article/0>; rel="canonical"`);
     expect(res.headers.get("Content-Disposition")).toBe(`attachment; filename="${filename}"`);
   });
+
+  it("should fail when a hash is passed but no secret key", async () => {
+    const fileUrl = `https://cdn.elifesciences.org/test.jpg?canonicalUri=http://elifesciences.com/article/0`;
+    const validID = btoa(fileUrl);
+    const filename = "test.jpg";
+
+    const req = new Request(`https://example.com/downloads/${validID}/${filename}?_hash=blahblahblah`) as BunRequest;
+    req.params = {
+      id: validID,
+      filename,
+    };
+    const res = await routes["/download/:id/:filename"](req);
+
+    expect(res.status).toBe(500);
+    expect(await res.text()).toBe("Cannot verify request");
+  });
 });
