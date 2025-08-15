@@ -1,11 +1,9 @@
-import { s3 } from "bun";
-import type { BunRequest } from "bun";
+import type { BunRequest, S3Client } from "bun";
 import { verifyUrl } from "./signer";
 
 const uriSignerSecret = process.env.SECRET
 
-export const routes = {
-  // Dynamic routes
+export const createRoutes = (s3Client: S3Client) => ({
   "/download/:id/:filename": async (req) => {
     const url = URL.parse(req.url);
     if (!url) {
@@ -42,7 +40,7 @@ export const routes = {
 
     const canonicalUri = cdnUri.searchParams.get('canonicalUri');
 
-    const s3file = s3.file(cdnUri.pathname);
+    const s3file = s3Client.file(cdnUri.pathname);
     if (!(await s3file.exists())) {
       return new Response("Not Found", { status: 404 });
     }
@@ -56,4 +54,4 @@ export const routes = {
     response.headers.set('Content-Disposition', `attachment; filename="${req.params.filename}"`)
     return response;
   },
-}
+});
