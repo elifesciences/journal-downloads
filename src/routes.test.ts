@@ -1,6 +1,7 @@
 import { describe, it, expect, mock } from "bun:test"
 import { BunRequest, S3Client } from "bun";
 import { createRoutes } from "./routes";
+import { createUrlHash } from "./signer";
 
 const fileExistsMock = mock(() => true)
 
@@ -111,7 +112,6 @@ describe('routes', async () => {
     expect(await res.text()).toBe("Cannot verify request");
   });
 
-
   it("should fail when an invalid hash is passed", async () => {
     const fileUrl = `https://cdn.elifesciences.org/test.jpg?canonicalUri=http://elifesciences.com/article/0`;
     const validID = btoa(fileUrl);
@@ -126,5 +126,26 @@ describe('routes', async () => {
 
     expect(res.status).toBe(406);
     expect(await res.text()).toBe("Not Acceptable");
+  });
+
+  it.only("should succeed when an valid hash is passed", async () => {
+    const fileUrl = `https://cdn.elifesciences.org/test.jpg?canonicalUri=http://elifesciences.com/article/0`;
+    const validID = btoa(fileUrl);
+    const filename = "test.jpg";
+
+    //this URL needs to be a valid elifesciences host to be signed correctly
+    const requestUrl = `https://elifesciences.org/downloads/${validID}/${filename}`;
+
+    const hash = createUrlHash(signerKey, requestUrl);
+
+    const req = new Request(`${requestUrl}?_hash=${encodeURIComponent(hash)}`) as BunRequest;
+    req.params = {
+      id: validID,
+      filename,
+    };
+    const res = await routesWithSigner["/download/:id/:filename"](req);
+
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("file content");
   });
 });
