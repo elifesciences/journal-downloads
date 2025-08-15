@@ -14,6 +14,8 @@ const mockS3: S3Client = {
 };
 
 const routes = createRoutes(mockS3);
+const signerKey = "totally-not-secret-for-tests";
+const routesWithSigner = createRoutes(mockS3, signerKey);
 
 describe('routes', async () => {
   it("should reject nonsense ID", async () => {
@@ -107,5 +109,22 @@ describe('routes', async () => {
 
     expect(res.status).toBe(500);
     expect(await res.text()).toBe("Cannot verify request");
+  });
+
+
+  it("should fail when an invalid hash is passed", async () => {
+    const fileUrl = `https://cdn.elifesciences.org/test.jpg?canonicalUri=http://elifesciences.com/article/0`;
+    const validID = btoa(fileUrl);
+    const filename = "test.jpg";
+
+    const req = new Request(`https://example.com/downloads/${validID}/${filename}?_hash=blahblahblah`) as BunRequest;
+    req.params = {
+      id: validID,
+      filename,
+    };
+    const res = await routesWithSigner["/download/:id/:filename"](req);
+
+    expect(res.status).toBe(406);
+    expect(await res.text()).toBe("Not Acceptable");
   });
 });

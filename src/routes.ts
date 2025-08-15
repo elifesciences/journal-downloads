@@ -22,7 +22,7 @@ export const createRoutes = (s3Client: S3Client, uriSignerSecret?: string) => ({
       url.search = ""
 
       if (!verifyUrl(uriSignerSecret, url.toString(), hash)) {
-        return new Response("NotAcceptable", { status: 406 });
+        return new Response("Not Acceptable", { status: 406 });
       }
     }
 
