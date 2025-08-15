@@ -74,4 +74,22 @@ describe('routes', async () => {
     expect(await res.text()).toBe("file content");
     expect(res.headers.get("Content-Disposition")).toBe(`attachment; filename="${filename}"`);
   });
+
+  it("should return canonical header when given extra param", async () => {
+    const fileUrl = `https://cdn.elifesciences.org/test.jpg?canonicalUri=http://elifesciences.com/article/0`;
+    const validID = btoa(fileUrl);
+    const filename = "test.jpg";
+
+    const req = new Request(`https://example.com/downloads/${validID}/${filename}`) as BunRequest;
+    req.params = {
+      id: validID,
+      filename,
+    };
+    const res = await routes["/download/:id/:filename"](req);
+
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("file content");
+    expect(res.headers.get("Link")).toBe(`<http://elifesciences.com/article/0>; rel="canonical"`);
+    expect(res.headers.get("Content-Disposition")).toBe(`attachment; filename="${filename}"`);
+  });
 });
