@@ -1,5 +1,5 @@
 import { s3 } from "bun";
-import { createHmac } from "crypto";
+import { verifyUrl } from "./signer";
 
 const uriSignerSecret = process.env.SECRET
 
@@ -26,11 +26,7 @@ Bun.serve({
         url.port = "443"
         url.search = ""
 
-        const newHash = createHmac("sha256", uriSignerSecret)
-                      .update(url.toString())
-                      .digest("base64");
-
-        if (newHash !== hash) {
+        if (!verifyUrl(uriSignerSecret, url.toString(), hash)) {
           return new Response("Not Acceptable", { status: 406 });
         }
       }
