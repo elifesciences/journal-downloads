@@ -128,7 +128,7 @@ describe('routes', async () => {
     expect(await res.text()).toBe("Not Acceptable");
   });
 
-  it.only("should succeed when an valid hash is passed", async () => {
+  it("should succeed when an valid hash is passed", async () => {
     const fileUrl = `https://cdn.elifesciences.org/test.jpg?canonicalUri=http://elifesciences.com/article/0`;
     const validID = btoa(fileUrl);
     const filename = "test.jpg";
