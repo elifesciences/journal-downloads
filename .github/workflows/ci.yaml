@@ -1,0 +1,66 @@
+name: Build
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - '*'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # Seemingly something mise installs breaks post-checkout.
+      # this runs a post-task after post-mise (for caching) but before post-checkout
+      - name: Clean up Mise
+        uses: gacts/run-and-post-run@v1
+        with:
+          run: echo "Nothing"
+          post: mise implode -y
+      - name: Install tools
+        uses: jdx/mise-action@v2
+      - name: test
+        run: mise test
+
+  generate-version:
+    runs-on: ubuntu-latest
+    outputs:
+      trunkver: ${{ steps.trunkver.outputs.trunkver }}
+    steps:
+      - name: Get a version tag
+        id: trunkver
+        uses: crftd-tech/trunkver@main
+        with:
+          prerelease: ${{ github.ref == 'refs/heads/main' && 'false' || 'true' }}
+
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs: [generate-version, test]
+    if: github.ref == 'refs/heads/main'
+    env:
+        IMAGE_REPO: ghcr.io/elifesciences/journal-downloads
+        IMAGE_TAG: ${{ needs.generate-version.outputs.trunkver }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          # dependencies needed for building are amd64 only
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ${{ env.IMAGE_REPO }}:${{ env.IMAGE_TAG }}
