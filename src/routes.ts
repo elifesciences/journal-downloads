@@ -1,29 +1,31 @@
 import type { BunRequest, S3Client } from "bun";
 import { verifyUrl } from "./signer";
 
-export const createRoutes = (s3ClientPromise: Promise<S3Client>, uriSignerSecret?: string) => ({
+export const createRoutes = (s3ClientPromise: Promise<S3Client>, uriSignerSecret: string) => ({
   "/download/:id/:filename": async (req) => {
     const url = URL.parse(req.url);
     if (!url) {
       return new Response("Not Found", { status: 404 });
     }
 
+    if (!uriSignerSecret) {
+      return new Response("Cannot verify request", { status: 500 });
+    }
+
     const hash = url?.searchParams.get('_hash');
 
-    if (hash !== null) {
-      if (!uriSignerSecret) {
-        return new Response("Cannot verify request", { status: 500 });
-      }
+    if (!hash) {
+      return new Response("Not Acceptable", { status: 406 });
+    }
 
-      //override parts of the URL that we know will be different
-      url.host = "elifesciences.org"
-      url.protocol = "https"
-      url.port = "443"
-      url.search = ""
+    //override parts of the URL that we know will be different
+    url.host = "elifesciences.org"
+    url.protocol = "https"
+    url.port = "443"
+    url.search = ""
 
-      if (!verifyUrl(uriSignerSecret, url.toString(), hash)) {
-        return new Response("Not Acceptable", { status: 406 });
-      }
+    if (!verifyUrl(uriSignerSecret, url.toString(), hash)) {
+      return new Response("Not Acceptable", { status: 406 });
     }
 
     const cdnUri = URL.parse(atob(req.params.id));
