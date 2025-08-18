@@ -4,7 +4,7 @@ This service proxies S3 file resources to clients using the download ID and hash
 
 This allows us to offload the streaming of data from the main PHP application (something is not very good at).
 
-This is built using Bun.js, to give zero dependencies in prod.
+This is built using Bun.js, to give zero dependencies in prod, but currently requires @aws-sdk/credential-provider-web-identity for cluster dpeloyment until the bun s3 client supports web-identity
 
 ## development
 

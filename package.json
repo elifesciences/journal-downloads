@@ -1,5 +1,7 @@
 {
-  "dependencies": {},
+  "dependencies": {
+    "@aws-sdk/credential-provider-web-identity": "^3.864.0"
+  },
   "devDependencies": {
     "@types/bun": "^1.2.20"
   }

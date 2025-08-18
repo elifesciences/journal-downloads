@@ -1,5 +1,5 @@
 import { createRoutes } from "./routes";
-import { s3 } from "bun";
+import { s3 } from "./s3";
 
 const uriSignerSecret = process.env.SECRET;
 
