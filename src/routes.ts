@@ -1,7 +1,7 @@
 import type { BunRequest, S3Client } from "bun";
 import { verifyUrl } from "./signer";
 
-export const createRoutes = (s3ClientPromise: Promise<S3Client>, uriSignerSecret: string) => ({
+export const createRoutes = (s3ClientPromise: Promise<S3Client>, uriSignerSecret: string, expectedHostOverride?: string) => ({
   "/download/:id/:filename": async (req) => {
     const url = URL.parse(req.url);
     if (!url) {
@@ -18,10 +18,14 @@ export const createRoutes = (s3ClientPromise: Promise<S3Client>, uriSignerSecret
       return new Response("Not Acceptable: no signature given", { status: 406 });
     }
 
-    //override parts of the URL that we know will be different
-    url.host = "elifesciences.org"
-    url.protocol = "https"
-    url.port = "443"
+    if (expectedHostOverride) {
+      //override parts of the URL that we know will be different
+      url.host = expectedHostOverride
+      url.protocol = "https"
+      url.port = "443"
+    }
+
+    // original URL does not contain has parameter in URL, so we should hash it without it
     url.search = ""
 
     if (!verifyUrl(uriSignerSecret, url.toString(), hash)) {
