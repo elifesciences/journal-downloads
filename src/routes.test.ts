@@ -163,4 +163,21 @@ describe('routes', async () => {
     expect(res.status).toBe(406);
     expect(await res.text()).toBe("Not Acceptable: invalid signature");
   });
+
+  it("should do a string replacement on 'unsafe' URLs", async () => {
+    const fileUrl = `https://cdn.elifesciences.org/test.jpg?canonicalUri=http://elifesciences.com/article/0`;
+    const validId = btoa(fileUrl);
+    const stringReplacedValidId = validId.replace('+', '.').replace('/', '_').replace('=', '-');
+    const filename = "test.jpg";
+
+    const req = new Request(`https://example.com/downloads/${stringReplacedValidId}/${filename}?_hash=blahblahblah`) as BunRequest;
+    req.params = {
+      id: stringReplacedValidId,
+      filename,
+    };
+    const res = await routesWithSigner["/download/:id/:filename"](req);
+
+    expect(res.status).toBe(406);
+    expect(await res.text()).toBe("Not Acceptable: invalid signature");
+  });
 });

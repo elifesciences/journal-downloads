@@ -28,7 +28,10 @@ export const createRoutes = (s3ClientPromise: Promise<S3Client>, uriSignerSecret
       return new Response("Not Acceptable: invalid signature", { status: 406 });
     }
 
-    const cdnUri = URL.parse(atob(req.params.id));
+    // the journal called these "unsafe params" so we need to spport replacing them
+    const id = req.params.id.replace('.', '+').replace('_', '/').replace('-', '=');
+
+    const cdnUri = URL.parse(atob(id));
 
     if (!cdnUri) {
       return new Response("Not Found", { status: 404 });
