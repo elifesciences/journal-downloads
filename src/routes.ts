@@ -15,7 +15,7 @@ export const createRoutes = (s3ClientPromise: Promise<S3Client>, uriSignerSecret
     const hash = url?.searchParams.get('_hash');
 
     if (!hash) {
-      return new Response("Not Acceptable", { status: 406 });
+      return new Response("Not Acceptable: no signature given", { status: 406 });
     }
 
     //override parts of the URL that we know will be different
@@ -25,7 +25,7 @@ export const createRoutes = (s3ClientPromise: Promise<S3Client>, uriSignerSecret
     url.search = ""
 
     if (!verifyUrl(uriSignerSecret, url.toString(), hash)) {
-      return new Response("Not Acceptable", { status: 406 });
+      return new Response("Not Acceptable: invalid signature", { status: 406 });
     }
 
     const cdnUri = URL.parse(atob(req.params.id));
@@ -35,7 +35,7 @@ export const createRoutes = (s3ClientPromise: Promise<S3Client>, uriSignerSecret
     }
 
     if (cdnUri.host !== "cdn.elifesciences.org") {
-      return new Response("Not Acceptable", { status: 406 });
+      return new Response("Not Acceptable: invalid host", { status: 406 });
     }
 
     const canonicalUri = cdnUri.searchParams.get('canonicalUri');

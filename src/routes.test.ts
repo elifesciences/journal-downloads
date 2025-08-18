@@ -75,7 +75,7 @@ describe('routes', async () => {
     };
     const res = await routesWithSigner["/download/:id/:filename"](req);
     expect(res.status).toBe(406);
-    expect(await res.text()).toBe("Not Acceptable");
+    expect(await res.text()).toBe("Not Acceptable: invalid host");
   });
 
   it("should return 404 file when a file does not exist in s3", async () => {
@@ -161,6 +161,6 @@ describe('routes', async () => {
     const res = await routesWithSigner["/download/:id/:filename"](req);
 
     expect(res.status).toBe(406);
-    expect(await res.text()).toBe("Not Acceptable");
+    expect(await res.text()).toBe("Not Acceptable: invalid signature");
   });
 });
