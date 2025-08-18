@@ -29,7 +29,7 @@ export const createRoutes = (s3ClientPromise: Promise<S3Client>, uriSignerSecret
     }
 
     // the journal called these "unsafe params" so we need to spport replacing them
-    const id = req.params.id.replace('.', '+').replace('_', '/').replace('-', '=');
+    const id = req.params.id.replaceAll('.', '+').replaceAll('_', '/').replaceAll('-', '=');
 
     const cdnUri = URL.parse(atob(id));
 
