@@ -8,10 +8,6 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
       return new Response("Not Found", { status: 404 });
     }
 
-    if (!uriSignerSecret) {
-      return new Response("Cannot verify request", { status: 500 });
-    }
-
     const hash = url?.searchParams.get('_hash');
 
     if (!hash) {
