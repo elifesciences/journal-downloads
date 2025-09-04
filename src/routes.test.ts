@@ -15,11 +15,12 @@ const mockS3: S3Client = {
 };
 
 const signerKey = "totally-not-secret-for-tests";
-const routesWithSigner = createRoutes(async () => mockS3, signerKey);
+const cdnHost = "cdn.somewhere.tld";
+const routesWithSigner = createRoutes(async () => mockS3, signerKey, cdnHost);
 
 describe('routes', async () => {
   it("should succeed when an valid hash is passed", async () => {
-    const fileUrl = `https://cdn.elifesciences.org/test.jpg?canonicalUri=http://elifesciences.com/article/0`;
+    const fileUrl = `https://cdn.somewhere.tld/test.jpg?canonicalUri=http://elifesciences.com/article/0`;
     const validID = btoa(fileUrl);
     const filename = "test.jpg";
 
@@ -60,7 +61,7 @@ describe('routes', async () => {
   });
 
   it("should accept host override urls", async () => {
-    const fileUrl = `https://cdn.elifesciences.org/test.jpg?canonicalUri=http://elifesciences.com/article/0`;
+    const fileUrl = `https://cdn.somewhere.tld/test.jpg?canonicalUri=http://elifesciences.com/article/0`;
     const validID = btoa(fileUrl);
     const filename = "test.jpg";
 
@@ -76,7 +77,7 @@ describe('routes', async () => {
       filename,
     };
 
-    const routesWithSigner = createRoutes(async () => mockS3, signerKey, 'elifesciences.org');
+    const routesWithSigner = createRoutes(async () => mockS3, signerKey, cdnHost, 'elifesciences.org');
     const res = await routesWithSigner["/download/:id/:filename"](req);
 
     expect(res.status).toBe(200);
@@ -84,7 +85,7 @@ describe('routes', async () => {
   });
 
   it("should reject non-elife CDN urls", async () => {
-    const wrongId = btoa("https://not-cdn.elifesciences.org/test.jpg");
+    const wrongId = btoa("https://not-cdn.somewhere.tld/test.jpg");
     const filename = "test.jpg";
 
     //this URL needs to be a valid elifesciences host to be signed correctly
@@ -103,7 +104,7 @@ describe('routes', async () => {
   });
 
   it("should return 404 file when a file does not exist in s3", async () => {
-    const fileUrl = `https://cdn.elifesciences.org/test.jpg`;
+    const fileUrl = `https://cdn.somewhere.tld/test.jpg`;
     const validId = btoa(fileUrl);
     const filename = "test.jpg";
     fileExistsMock.mockReturnValue(false);
@@ -128,7 +129,7 @@ describe('routes', async () => {
   });
 
   it("should return a file when it exists in s3", async () => {
-    const fileUrl = `https://cdn.elifesciences.org/test.jpg`;
+    const fileUrl = `https://cdn.somewhere.tld/test.jpg`;
     const validId = btoa(fileUrl);
     const filename = "test.jpg";
 
@@ -150,7 +151,7 @@ describe('routes', async () => {
   });
 
   it("should return canonical header when given extra param", async () => {
-    const fileUrl = `https://cdn.elifesciences.org/test.jpg?canonicalUri=http://elifesciences.com/article/0`;
+    const fileUrl = `https://cdn.somewhere.tld/test.jpg?canonicalUri=http://elifesciences.com/article/0`;
     const validId = btoa(fileUrl);
     const filename = "test.jpg";
 
@@ -173,7 +174,7 @@ describe('routes', async () => {
   });
 
   it("should fail when an invalid hash is passed", async () => {
-    const fileUrl = `https://cdn.elifesciences.org/test.jpg?canonicalUri=http://elifesciences.com/article/0`;
+    const fileUrl = `https://cdn.somewhere.tld/test.jpg?canonicalUri=http://elifesciences.com/article/0`;
     const validID = btoa(fileUrl);
     const filename = "test.jpg";
 
@@ -189,7 +190,7 @@ describe('routes', async () => {
   });
 
   it("should do a string replacement on 'unsafe' URLs", async () => {
-    const fileUrl = `https://cdn.elifesciences.org/test.jpg?canonicalUri=http://elifesciences.com/article/0`;
+    const fileUrl = `https://cdn.somewhere.tld/test.jpg?canonicalUri=http://elifesciences.com/article/0`;
     const validId = btoa(fileUrl);
     const stringReplacedValidId = validId.replace('+', '.').replace('/', '_').replace('=', '-');
     const filename = "test.jpg";

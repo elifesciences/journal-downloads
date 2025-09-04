@@ -1,7 +1,7 @@
 import type { BunRequest, S3Client } from "bun";
 import { verifyUrl } from "./signer";
 
-export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSignerSecret: string, expectedHostOverride?: string) => ({
+export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSignerSecret: string, cdnHost: string, expectedHostOverride?: string) => ({
   "/download/:id/:filename": async (req) => {
     const url = URL.parse(req.url);
     if (!url) {
@@ -41,7 +41,7 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
       return new Response("Not Found", { status: 404 });
     }
 
-    if (cdnUri.host !== "cdn.elifesciences.org") {
+    if (cdnUri.host !== cdnHost) {
       return new Response("Not Acceptable: invalid host", { status: 406 });
     }
 

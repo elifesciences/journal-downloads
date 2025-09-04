@@ -7,12 +7,17 @@ if (!uriSignerSecret) {
   process.exit(1);
 }
 
+const cdnHost = process.env.CDN_HOST;
+if (!cdnHost) {
+  console.log('Cannot start without a cdn host')
+  process.exit(1);
+}
 const expectedHostOverride = process.env.HOST_OVERRIDE;
 
 Bun.serve({
   development: process.env.NODE_ENV === 'development',
   // `routes` requires Bun v1.2.3+
-  routes: createRoutes(createS3, uriSignerSecret, expectedHostOverride),
+  routes: createRoutes(createS3, uriSignerSecret, cdnHost, expectedHostOverride),
   fetch(req) {
     return new Response("Not Found", { status: 404 });
   },
