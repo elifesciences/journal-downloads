@@ -12,7 +12,7 @@ const expectedHostOverride = process.env.HOST_OVERRIDE;
 Bun.serve({
   development: process.env.NODE_ENV === 'development',
   // `routes` requires Bun v1.2.3+
-  routes: createRoutes(createS3(), uriSignerSecret, expectedHostOverride),
+  routes: createRoutes(createS3, uriSignerSecret, expectedHostOverride),
   fetch(req) {
     return new Response("Not Found", { status: 404 });
   },

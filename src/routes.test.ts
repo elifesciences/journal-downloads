@@ -15,7 +15,7 @@ const mockS3: S3Client = {
 };
 
 const signerKey = "totally-not-secret-for-tests";
-const routesWithSigner = createRoutes(new Promise((resolver) => resolver(mockS3)), signerKey);
+const routesWithSigner = createRoutes(async () => mockS3, signerKey);
 
 describe('routes', async () => {
   it("should succeed when an valid hash is passed", async () => {
@@ -76,7 +76,7 @@ describe('routes', async () => {
       filename,
     };
 
-    const routesWithSigner = createRoutes(new Promise((resolver) => resolver(mockS3)), signerKey, 'elifesciences.org');
+    const routesWithSigner = createRoutes(async () => mockS3, signerKey, 'elifesciences.org');
     const res = await routesWithSigner["/download/:id/:filename"](req);
 
     expect(res.status).toBe(200);
