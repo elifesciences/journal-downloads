@@ -2,7 +2,7 @@ import type { BunRequest, S3Client } from "bun";
 import { verifyUrl } from "./signer";
 
 export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSignerSecret: string, cdnHost: string, allowedHosts: string[]) => ({
-  "/download/:id/:filename": async (req: Request) => {
+  "/download/:id/:filename": async (req: BunRequest<"/download/:id/:filename">) => {
     const url = URL.parse(req.url);
     if (!url) {
       return new Response("Not Found", { status: 404 });
