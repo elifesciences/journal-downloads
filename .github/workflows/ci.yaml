@@ -22,6 +22,8 @@ jobs:
           post: mise implode -y
       - name: Install tools
         uses: jdx/mise-action@v2
+      - name: lint
+        run: mise lint
       - name: test
         run: mise test
 
