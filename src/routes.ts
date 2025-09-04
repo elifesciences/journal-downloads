@@ -9,7 +9,6 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
     }
 
     const hash = url?.searchParams.get('_hash');
-
     if (!hash) {
       return new Response("Not Acceptable: no signature given", { status: 406 });
     }
@@ -34,11 +33,10 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
       return new Response("Not Acceptable: invalid signature", { status: 406 });
     }
 
-    // the journal called these "unsafe params" so we need to spport replacing them
+    // the journal called these "unsafe params" so we need to support replacing them
     const id = req.params.id.replaceAll('.', '+').replaceAll('_', '/').replaceAll('-', '=');
 
     const cdnUri = URL.parse(atob(id));
-
     if (!cdnUri) {
       return new Response("Not Found", { status: 404 });
     }
@@ -56,12 +54,13 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
     }
 
     const stream = s3file.stream();
-
+      ;
     const response = new Response(stream);
+    response.headers.set('Content-Disposition', `attachment; filename="${req.params.filename}"`);
+
     if (canonicalUri) {
       response.headers.set('Link', `<${canonicalUri}>; rel="canonical"`);
     }
-    response.headers.set('Content-Disposition', `attachment; filename="${req.params.filename}"`)
     return response;
   },
 });
