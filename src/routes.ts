@@ -1,8 +1,8 @@
 import type { BunRequest, S3Client } from "bun";
 import { verifyUrl } from "./signer";
 
-export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSignerSecret: string, cdnHost: string, expectedHostOverride?: string) => ({
-  "/download/:id/:filename": async (req) => {
+export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSignerSecret: string, cdnHost: string, allowedHosts: string[]) => ({
+  "/download/:id/:filename": async (req: Request) => {
     const url = URL.parse(req.url);
     if (!url) {
       return new Response("Not Found", { status: 404 });
@@ -18,11 +18,17 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
       return new Response("Not Acceptable: no signature given", { status: 406 });
     }
 
-    if (expectedHostOverride) {
-      //override parts of the URL that we know will be different
-      url.host = expectedHostOverride
-      url.protocol = "https"
-      url.port = "443"
+    const hostHeader = req.headers.get('x-forwarded-host');
+    if (hostHeader) {
+      // pull the last of any comma separated. This should only be from trusted proxies
+      const expectedHostOverride = hostHeader.split(',').map((host) => host.trim()).pop();
+      // test if the last host override is allowed, then override
+      if (expectedHostOverride && allowedHosts.includes(expectedHostOverride)) {
+        //override parts of the URL that we know will be different
+        url.host = expectedHostOverride
+        url.protocol = "https"
+        url.port = "443"
+      }
     }
 
     // original URL does not contain has parameter in URL, so we should hash it without it

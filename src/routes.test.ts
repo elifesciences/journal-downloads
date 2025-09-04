@@ -16,7 +16,7 @@ const mockS3: S3Client = {
 
 const signerKey = "totally-not-secret-for-tests";
 const cdnHost = "cdn.somewhere.tld";
-const routesWithSigner = createRoutes(async () => mockS3, signerKey, cdnHost);
+const routesWithSigner = createRoutes(async () => mockS3, signerKey, cdnHost, []);
 
 describe('routes', async () => {
   it("should succeed when an valid hash is passed", async () => {
@@ -60,7 +60,7 @@ describe('routes', async () => {
     expect(await res.text()).toBe("Not Found");
   });
 
-  it("should accept host override urls", async () => {
+  it("should accept x-forwarded-host override", async () => {
     const fileUrl = `https://cdn.somewhere.tld/test.jpg?canonicalUri=http://elifesciences.com/article/0`;
     const validID = btoa(fileUrl);
     const filename = "test.jpg";
@@ -71,17 +71,49 @@ describe('routes', async () => {
 
     const hash = createUrlHash(signerKey, hashedUrl);
 
-    const req = new Request(`${requestUrl}?_hash=${encodeURIComponent(hash)}`) as BunRequest;
+    const req = new Request(`${requestUrl}?_hash=${encodeURIComponent(hash)}`, {
+      headers: {
+        'x-forwarded-host': 'elifesciences.org',
+      }
+    }) as BunRequest;
     req.params = {
       id: validID,
       filename,
     };
 
-    const routesWithSigner = createRoutes(async () => mockS3, signerKey, cdnHost, 'elifesciences.org');
+    const routesWithSigner = createRoutes(async () => mockS3, signerKey, cdnHost, ['elifesciences.org']);
     const res = await routesWithSigner["/download/:id/:filename"](req);
 
     expect(res.status).toBe(200);
     expect(await res.text()).toBe("file content");
+  });
+
+  it("should accept only the last x-forwarded-host override", async () => {
+    const fileUrl = `https://cdn.somewhere.tld/test.jpg?canonicalUri=http://elifesciences.com/article/0`;
+    const validID = btoa(fileUrl);
+    const filename = "test.jpg";
+
+    //this URL needs to be a valid elifesciences host to be signed correctly
+    const hashedUrl = `https://elifesciences.org/downloads/${validID}/${filename}`;
+    const requestUrl = `https://test.elifesciences.org/downloads/${validID}/${filename}`;
+
+    const hash = createUrlHash(signerKey, hashedUrl);
+
+    const req = new Request(`${requestUrl}?_hash=${encodeURIComponent(hash)}`, {
+      headers: {
+        'x-forwarded-host': 'elifesciences.org, realhost.from.proxy',
+      }
+    }) as BunRequest;
+    req.params = {
+      id: validID,
+      filename,
+    };
+
+    const routesWithSigner = createRoutes(async () => mockS3, signerKey, cdnHost, ['elifesciences.org']);
+    const res = await routesWithSigner["/download/:id/:filename"](req);
+
+    expect(res.status).toBe(406);
+    expect(await res.text()).toBe("Not Acceptable: invalid signature");
   });
 
   it("should reject non-elife CDN urls", async () => {
