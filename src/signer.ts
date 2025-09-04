@@ -1,4 +1,4 @@
-import { createHmac } from "crypto";
+import { createHmac } from "node:crypto";
 
 export const verifyUrl = (secret: string, url: string, hash: string): boolean => {
   const newHash = createHmac("sha256", secret)

@@ -28,6 +28,6 @@ describe('signer', () => {
 
     const hash = createUrlHash(secret, url);
 
-    expect(verifyUrl(secret, url, hash + '1')).toBeFalse()
+    expect(verifyUrl(secret, url, `${hash}1`)).toBeFalse()
   });
 });

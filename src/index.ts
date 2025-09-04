@@ -19,7 +19,5 @@ Bun.serve({
   development: process.env.NODE_ENV === 'development',
   // `routes` requires Bun v1.2.3+
   routes: createRoutes(createS3, uriSignerSecret, cdnHost, allowedHosts),
-  fetch(req) {
-    return new Response("Not Found", { status: 404 });
-  },
+  fetch: () => new Response("Not Found", { status: 404 }),
 });

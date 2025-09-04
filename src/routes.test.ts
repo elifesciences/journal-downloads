@@ -1,5 +1,5 @@
 import { describe, it, expect, mock } from "bun:test"
-import { BunRequest, S3Client } from "bun";
+import type { BunRequest, S3Client } from "bun";
 import { createRoutes } from "./routes";
 import { createUrlHash } from "./signer";
 
@@ -8,7 +8,7 @@ const fileExistsMock = mock(() => true)
 // Create a mock S3 client that simulates the behavior we need for testing.
 const mockS3: S3Client = {
   // @ts-expect-error we only need to mock the methods we use
-  file: (pathname: string) => ({
+  file: (_pathname: string) => ({
     exists: fileExistsMock,
     stream: () => new Blob(["file content"]).stream(),
   }),
