@@ -54,7 +54,7 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
         response.headers.set('Link', `<${canonicalUri}>; rel="canonical"`);
       }
       return response;
-    } catch (error) {
+    } catch (_error) {
       return new Response("Unexpected Error fetching content", { status: 500 });
     }
   },
