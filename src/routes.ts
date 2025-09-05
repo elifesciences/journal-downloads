@@ -44,6 +44,9 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
     // proxy S3 or http
     try {
       const response = cdnUri.host === cdnHost ? await s3Proxy(await s3ClientFactory(), cdnUri) : await httpProxy(cdnUri);
+      if (response.status !== 200) {
+        return response;
+      }
 
       response.headers.set('Content-Disposition', `attachment; filename="${req.params.filename}"`);
       const canonicalUri = cdnUri.searchParams.get('canonicalUri');

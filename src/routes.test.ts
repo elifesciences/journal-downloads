@@ -145,6 +145,7 @@ describe('routes', async () => {
 
     expect(res.status).toBe(404);
     expect(await res.text()).toBe("Not Found");
+    expect(res.headers.get('Content-Disposition')).toBeEmpty();
 
     //reset mock
     fileExistsMock.mockReturnValue(true);
@@ -295,6 +296,7 @@ describe('routes', async () => {
     const res = await routesWithSigner["/download/:id/:filename"](req);
     expect(res.status).toBe(404);
     expect(await res.text()).toBe("Not Found"); // returned from proxy code, not upstream
+    expect(res.headers.get('Content-Disposition')).toBeEmpty();
   });
 
   it("should return a 500 error from any non-successful non-elife CDN urls", async () => {
