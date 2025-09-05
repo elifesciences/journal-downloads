@@ -54,9 +54,16 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
     }
 
     const stream = s3file.stream();
-      ;
+
     const response = new Response(stream);
     response.headers.set('Content-Disposition', `attachment; filename="${req.params.filename}"`);
+
+    // get file details to pass back with headers
+    const s3FileStat = await s3file.stat();
+    response.headers.set('Content-Length', s3FileStat.size.toString());
+    response.headers.set('Content-Type', s3FileStat.type);
+    response.headers.set('Etag', s3FileStat.etag);
+    response.headers.set('Last-Modified', s3FileStat.lastModified.toUTCString());
 
     if (canonicalUri) {
       response.headers.set('Link', `<${canonicalUri}>; rel="canonical"`);
