@@ -276,7 +276,7 @@ describe('routes', async () => {
         status: 404,
         headers: new Headers({
           "Content-Type": "text/plain",
-          "Content-Length": "12",
+          "Content-Length": "14",
           "ETag": "ABC1234567890",
           "Last-Modified": "Fri, 05 Sep 2025 07:15:00 GMT"
         }),

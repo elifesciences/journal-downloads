@@ -43,7 +43,7 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
 
     // proxy S3 or http
     try {
-      const response = cdnUri.host === cdnHost ? await s3Proxy(await s3ClientFactory(), cdnUri) : await httpProxy(cdnUri);
+      const response = cdnUri.host === cdnHost ? await s3Proxy(await s3ClientFactory(), cdnUri) : await httpProxy(cdnUri, req);
       if (response.status !== 200) {
         return response;
       }
@@ -60,8 +60,29 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
   },
 });
 
-const httpProxy = async (uri: URL) => {
-  const upstreamResponse = await fetch(uri);
+const httpProxy = async (uri: URL, req: BunRequest) => {
+  const upstreamRequestHeadersToProxy = [
+    'Accept',
+    'Cache-Control',
+    'If-Modified-Since',
+    'If-None-Match',
+    'Referer',
+    'X-Forwarded-Host',
+    'X-Forwarded-Port',
+    'X-Forwarded-Proto',
+  ];
+
+  const upstreamHeaders = {};
+  upstreamRequestHeadersToProxy.forEach((header) => {
+    const requestHeaderValue = req.headers.get(header);
+    if (requestHeaderValue) {
+      upstreamHeaders[header] = requestHeaderValue;
+    }
+  });
+
+  const upstreamResponse = await fetch(uri, {
+    headers: upstreamHeaders,
+  });
 
   if (upstreamResponse.status === 404) {
     return new Response("Not Found", { status: 404 });
@@ -74,23 +95,23 @@ const httpProxy = async (uri: URL) => {
   const response = new Response(upstreamResponse.body, {
     status: 200
   });
-  const contentLength = upstreamResponse.headers.get('Content-Length');
-  const etag = upstreamResponse.headers.get('Etag');
-  const contentType = upstreamResponse.headers.get('Content-Type');
-  const lastModified = upstreamResponse.headers.get('Last-Modified');
-  if (contentLength) {
-    response.headers.set('Content-Length', contentLength);
-  }
-  if (etag) {
-    response.headers.set('Etag', etag);
-  }
-  if (contentType) {
-    response.headers.set('Content-Type', contentType);
-  }
-  if (lastModified) {
-    response.headers.set('Last-Modified', lastModified);
-  }
 
+  const headersToProxy = [
+    'Content-Length',
+    'Etag',
+    'Content-Type',
+    'Last-Modified',
+    'Cache-Control',
+    'Date',
+    'Expires',
+    'Vary',
+  ];
+  headersToProxy.forEach((header) => {
+    const upstreamHeaderValue = upstreamResponse.headers.get(header);
+    if (upstreamHeaderValue) {
+      response.headers.set(header, upstreamHeaderValue);
+    }
+  });
   return response;
 }
 
