@@ -30,7 +30,7 @@ describe('routes', async () => {
     const filename = "test.jpg";
 
     //this URL needs to be a valid elifesciences host to be signed correctly
-    const requestUrl = `https://elifesciences.org/downloads/${validID}/${filename}`;
+    const requestUrl = `https://elifesciences.org/download/${validID}/${filename}`;
 
     const hash = createUrlHash(signerKey, requestUrl);
 
@@ -54,7 +54,7 @@ describe('routes', async () => {
     const filename = "test.jpg";
 
     //this URL needs to be a valid elifesciences host to be signed correctly
-    const requestUrl = `https://elifesciences.org/downloads/${wrongId}/${filename}`;
+    const requestUrl = `https://elifesciences.org/download/${wrongId}/${filename}`;
 
     const hash = createUrlHash(signerKey, requestUrl);
 
@@ -75,8 +75,8 @@ describe('routes', async () => {
     const filename = "test.jpg";
 
     //this URL needs to be a valid elifesciences host to be signed correctly
-    const hashedUrl = `https://elifesciences.org/downloads/${validID}/${filename}`;
-    const requestUrl = `https://test.elifesciences.org/downloads/${validID}/${filename}`;
+    const hashedUrl = `https://elifesciences.org/download/${validID}/${filename}`;
+    const requestUrl = `https://test.elifesciences.org/download/${validID}/${filename}`;
 
     const hash = createUrlHash(signerKey, hashedUrl);
 
@@ -103,8 +103,8 @@ describe('routes', async () => {
     const filename = "test.jpg";
 
     //this URL needs to be a valid elifesciences host to be signed correctly
-    const hashedUrl = `https://elifesciences.org/downloads/${validID}/${filename}`;
-    const requestUrl = `https://test.elifesciences.org/downloads/${validID}/${filename}`;
+    const hashedUrl = `https://elifesciences.org/download/${validID}/${filename}`;
+    const requestUrl = `https://test.elifesciences.org/download/${validID}/${filename}`;
 
     const hash = createUrlHash(signerKey, hashedUrl);
 
@@ -132,7 +132,7 @@ describe('routes', async () => {
     fileExistsMock.mockReturnValue(false);
 
     //this URL needs to be a valid elifesciences host to be signed correctly
-    const requestUrl = `https://elifesciences.org/downloads/${validId}/${filename}`;
+    const requestUrl = `https://elifesciences.org/download/${validId}/${filename}`;
 
     const hash = createUrlHash(signerKey, requestUrl);
 
@@ -157,7 +157,7 @@ describe('routes', async () => {
     const filename = "test.jpg";
 
     //this URL needs to be a valid elifesciences host to be signed correctly
-    const requestUrl = `https://elifesciences.org/downloads/${validId}/${filename}`;
+    const requestUrl = `https://elifesciences.org/download/${validId}/${filename}`;
 
     const hash = createUrlHash(signerKey, requestUrl);
 
@@ -179,7 +179,7 @@ describe('routes', async () => {
     const filename = "test.jpg";
 
     //this URL needs to be a valid elifesciences host to be signed correctly
-    const requestUrl = `https://elifesciences.org/downloads/${validId}/${filename}`;
+    const requestUrl = `https://elifesciences.org/download/${validId}/${filename}`;
 
     const hash = createUrlHash(signerKey, requestUrl);
 
@@ -201,7 +201,7 @@ describe('routes', async () => {
     const validID = btoa(fileUrl);
     const filename = "test.jpg";
 
-    const req = new Request(`https://example.com/downloads/${validID}/${filename}?_hash=blahblahblah`) as BunRequest;
+    const req = new Request(`https://example.com/download/${validID}/${filename}?_hash=blahblahblah`) as BunRequest;
     req.params = {
       id: validID,
       filename,
@@ -218,7 +218,7 @@ describe('routes', async () => {
     const stringReplacedValidId = validId.replace('+', '.').replace('/', '_').replace('=', '-');
     const filename = "test.jpg";
 
-    const req = new Request(`https://example.com/downloads/${stringReplacedValidId}/${filename}?_hash=blahblahblah`) as BunRequest;
+    const req = new Request(`https://example.com/download/${stringReplacedValidId}/${filename}?_hash=blahblahblah`) as BunRequest;
     req.params = {
       id: stringReplacedValidId,
       filename,
@@ -247,7 +247,7 @@ describe('routes', async () => {
     });
 
     //this URL needs to be a valid elifesciences host to be signed correctly
-    const requestUrl = `https://elifesciences.org/downloads/${wrongId}/${filename}`;
+    const requestUrl = `https://elifesciences.org/download/${wrongId}/${filename}`;
 
     const hash = createUrlHash(signerKey, requestUrl);
 
@@ -284,7 +284,7 @@ describe('routes', async () => {
     });
 
     //this URL needs to be a valid elifesciences host to be signed correctly
-    const requestUrl = `https://elifesciences.org/downloads/${wrongId}/${filename}`;
+    const requestUrl = `https://elifesciences.org/download/${wrongId}/${filename}`;
 
     const hash = createUrlHash(signerKey, requestUrl);
 
@@ -312,7 +312,7 @@ describe('routes', async () => {
     });
 
     //this URL needs to be a valid elifesciences host to be signed correctly
-    const requestUrl = `https://elifesciences.org/downloads/${wrongId}/${filename}`;
+    const requestUrl = `https://elifesciences.org/download/${wrongId}/${filename}`;
 
     const hash = createUrlHash(signerKey, requestUrl);
 
