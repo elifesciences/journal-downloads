@@ -1,7 +1,7 @@
 import { parseArgs } from "util";
 import { createUrlHash } from "./signer";
 
-const { values, positionals } = parseArgs({
+const { values } = parseArgs({
   args: Bun.argv,
   options: {
     url: {
@@ -19,11 +19,13 @@ const { values, positionals } = parseArgs({
 });
 
 if (!process.env.SECRET) {
-  throw Error('env var SECRET is required');
+  console.log('env var SECRET is required');
+  process.exit(1);
 }
 
 if (!values.url || !values.host || !values.filename) {
-  throw Error('all params are required, url, host and filename');
+  console.log('all params are required, url, host and filename');
+  process.exit(1);
 }
 
 const validID = btoa(values.url);
