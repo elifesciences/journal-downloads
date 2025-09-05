@@ -11,6 +11,7 @@ const mockS3: S3Client = {
   file: (_pathname: string) => ({
     exists: fileExistsMock,
     stream: () => new Blob(["file content"]).stream(),
+    stat: async () => ({ "etag": "ABC1234567890", "lastModified": new Date('2025-09-05T07:15:00'), "size": "12", "type": "text/plain"}),
   }),
 };
 
@@ -38,6 +39,10 @@ describe('routes', async () => {
 
     expect(res.status).toBe(200);
     expect(await res.text()).toBe("file content");
+    expect(res.headers.get('etag')).toBe("ABC1234567890");
+    expect(res.headers.get('last-modified')).toBe("Fri, 05 Sep 2025 07:15:00 GMT");
+    expect(res.headers.get('content-length')).toBe("12");
+    expect(res.headers.get('content-type')).toBe("text/plain");
   });
 
   it("should reject nonsense ID", async () => {
