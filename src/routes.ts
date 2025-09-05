@@ -41,8 +41,44 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
       return new Response("Not Found", { status: 404 });
     }
 
+    // straight forward proxy
     if (cdnUri.host !== cdnHost) {
-      return new Response("Not Acceptable: invalid host", { status: 406 });
+      try {
+        const upstreamResponse = await fetch(cdnUri);
+
+        if (upstreamResponse.status === 404) {
+          return new Response("Not Found", { status: 404 });
+        }
+
+        if (upstreamResponse.status !== 200) {
+          return new Response(`Error fetching upstream content: ${upstreamResponse.status}`, { status: 500 });
+        }
+
+        const response = new Response(upstreamResponse.body, {
+          status: 200
+        });
+        response.headers.set('Content-Disposition', `attachment; filename="${req.params.filename}"`);
+        const contentLength = upstreamResponse.headers.get('Content-Length');
+        const etag = upstreamResponse.headers.get('Etag');
+        const contentType = upstreamResponse.headers.get('Content-Type');
+        const lastModified = upstreamResponse.headers.get('Last-Modified');
+        if (contentLength) {
+          response.headers.set('Content-Length', contentLength);
+        }
+        if (etag) {
+          response.headers.set('Etag', etag);
+        }
+        if (contentType) {
+          response.headers.set('Content-Type', contentType);
+        }
+        if (lastModified) {
+          response.headers.set('Last-Modified', lastModified);
+        }
+
+        return response;
+      } catch (error) {
+        return new Response("Unexpected Error fetching content", { status: 500 });
+      }
     }
 
     const canonicalUri = cdnUri.searchParams.get('canonicalUri');

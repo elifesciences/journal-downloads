@@ -1,4 +1,5 @@
-import { describe, it, expect, mock } from "bun:test"
+import { describe, it, expect, mock, afterEach } from "bun:test"
+import { clearMocks, mock as fetchMock } from "bun-bagel";
 import type { BunRequest, S3Client } from "bun";
 import { createRoutes } from "./routes";
 import { createUrlHash } from "./signer";
@@ -20,6 +21,9 @@ const cdnHost = "cdn.somewhere.tld";
 const routesWithSigner = createRoutes(async () => mockS3, signerKey, cdnHost, []);
 
 describe('routes', async () => {
+  afterEach(() => {
+      clearMocks();
+  });
   it("should succeed when an valid hash is passed", async () => {
     const fileUrl = `https://cdn.somewhere.tld/test.jpg?canonicalUri=http://elifesciences.com/article/0`;
     const validID = btoa(fileUrl);
@@ -119,25 +123,6 @@ describe('routes', async () => {
 
     expect(res.status).toBe(406);
     expect(await res.text()).toBe("Not Acceptable: invalid signature");
-  });
-
-  it("should reject non-elife CDN urls", async () => {
-    const wrongId = btoa("https://not-cdn.somewhere.tld/test.jpg");
-    const filename = "test.jpg";
-
-    //this URL needs to be a valid elifesciences host to be signed correctly
-    const requestUrl = `https://elifesciences.org/downloads/${wrongId}/${filename}`;
-
-    const hash = createUrlHash(signerKey, requestUrl);
-
-    const req = new Request(`${requestUrl}?_hash=${encodeURIComponent(hash)}`) as BunRequest;
-    req.params = {
-      id: wrongId,
-      filename,
-    };
-    const res = await routesWithSigner["/download/:id/:filename"](req);
-    expect(res.status).toBe(406);
-    expect(await res.text()).toBe("Not Acceptable: invalid host");
   });
 
   it("should return 404 file when a file does not exist in s3", async () => {
@@ -241,5 +226,101 @@ describe('routes', async () => {
 
     expect(res.status).toBe(406);
     expect(await res.text()).toBe("Not Acceptable: invalid signature");
+  });
+
+  it("should proxy content from non-elife CDN urls", async () => {
+    const wrongId = btoa("https://not-cdn.somewhere.tld/test.txt");
+    const filename = "test.txt";
+
+    // mock a successful response
+    fetchMock("https://not-cdn.somewhere.tld/test.txt", {
+      data: new Blob(["test content"]),
+      response: {
+        headers: new Headers({
+          "Content-Type": "text/plain",
+          "Content-Length": "12",
+          "ETag": "ABC1234567890",
+          "Last-Modified": "Fri, 05 Sep 2025 07:15:00 GMT"
+        }),
+      },
+    });
+
+    //this URL needs to be a valid elifesciences host to be signed correctly
+    const requestUrl = `https://elifesciences.org/downloads/${wrongId}/${filename}`;
+
+    const hash = createUrlHash(signerKey, requestUrl);
+
+    const req = new Request(`${requestUrl}?_hash=${encodeURIComponent(hash)}`) as BunRequest;
+    req.params = {
+      id: wrongId,
+      filename,
+    };
+    const res = await routesWithSigner["/download/:id/:filename"](req);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("test content");
+    expect(res.headers.get('etag')).toBe("ABC1234567890");
+    expect(res.headers.get('last-modified')).toBe("Fri, 05 Sep 2025 07:15:00 GMT");
+    expect(res.headers.get('content-length')).toBe("12");
+    expect(res.headers.get('content-type')).toBe("text/plain");
+  });
+
+  it("should proxy 404 from non-elife CDN urls", async () => {
+    const wrongId = btoa("https://not-cdn.somewhere.tld/test.txt");
+    const filename = "test.txt";
+
+    // mock a successful response
+    fetchMock("https://not-cdn.somewhere.tld/test.txt", {
+      response: {
+        data: new Blob(["404: Not Found"]),
+        status: 404,
+        headers: new Headers({
+          "Content-Type": "text/plain",
+          "Content-Length": "12",
+          "ETag": "ABC1234567890",
+          "Last-Modified": "Fri, 05 Sep 2025 07:15:00 GMT"
+        }),
+      },
+    });
+
+    //this URL needs to be a valid elifesciences host to be signed correctly
+    const requestUrl = `https://elifesciences.org/downloads/${wrongId}/${filename}`;
+
+    const hash = createUrlHash(signerKey, requestUrl);
+
+    const req = new Request(`${requestUrl}?_hash=${encodeURIComponent(hash)}`) as BunRequest;
+    req.params = {
+      id: wrongId,
+      filename,
+    };
+    const res = await routesWithSigner["/download/:id/:filename"](req);
+    expect(res.status).toBe(404);
+    expect(await res.text()).toBe("Not Found"); // returned from proxy code, not upstream
+  });
+
+  it("should return a 500 error from any non-successful non-elife CDN urls", async () => {
+    const wrongId = btoa("https://not-cdn.somewhere.tld/test.txt");
+    const filename = "test.txt";
+
+    // mock a successful response
+    fetchMock("https://not-cdn.somewhere.tld/test.txt", {
+      response: {
+        data: new Blob(["418: I'm a teapot"]),
+        status: 418,
+      },
+    });
+
+    //this URL needs to be a valid elifesciences host to be signed correctly
+    const requestUrl = `https://elifesciences.org/downloads/${wrongId}/${filename}`;
+
+    const hash = createUrlHash(signerKey, requestUrl);
+
+    const req = new Request(`${requestUrl}?_hash=${encodeURIComponent(hash)}`) as BunRequest;
+    req.params = {
+      id: wrongId,
+      filename,
+    };
+    const res = await routesWithSigner["/download/:id/:filename"](req);
+    expect(res.status).toBe(500);
+    expect(await res.text()).toBe("Error fetching upstream content: 418");
   });
 });
