@@ -26,8 +26,8 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
       }
     }
 
-    // original URL does not contain has parameter in URL, so we should hash it without it
-    url.search = ""
+    // original URL was hashed without the hash parameter in it, so we should too
+    url.searchParams.delete('_hash');
 
     if (!verifyUrl(uriSignerSecret, url.toString(), hash)) {
       return new Response("Not Acceptable: invalid signature", { status: 406 });
