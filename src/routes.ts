@@ -41,69 +41,73 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
       return new Response("Not Found", { status: 404 });
     }
 
-    // straight forward proxy
-    if (cdnUri.host !== cdnHost) {
-      try {
-        const upstreamResponse = await fetch(cdnUri);
+    // proxy S3 or http
+    try {
+      const response = cdnUri.host === cdnHost ? await s3Proxy(await s3ClientFactory(), cdnUri) : await httpProxy(cdnUri);
 
-        if (upstreamResponse.status === 404) {
-          return new Response("Not Found", { status: 404 });
-        }
-
-        if (upstreamResponse.status !== 200) {
-          return new Response(`Error fetching upstream content: ${upstreamResponse.status}`, { status: 500 });
-        }
-
-        const response = new Response(upstreamResponse.body, {
-          status: 200
-        });
-        response.headers.set('Content-Disposition', `attachment; filename="${req.params.filename}"`);
-        const contentLength = upstreamResponse.headers.get('Content-Length');
-        const etag = upstreamResponse.headers.get('Etag');
-        const contentType = upstreamResponse.headers.get('Content-Type');
-        const lastModified = upstreamResponse.headers.get('Last-Modified');
-        if (contentLength) {
-          response.headers.set('Content-Length', contentLength);
-        }
-        if (etag) {
-          response.headers.set('Etag', etag);
-        }
-        if (contentType) {
-          response.headers.set('Content-Type', contentType);
-        }
-        if (lastModified) {
-          response.headers.set('Last-Modified', lastModified);
-        }
-
-        return response;
-      } catch (error) {
-        return new Response("Unexpected Error fetching content", { status: 500 });
+      response.headers.set('Content-Disposition', `attachment; filename="${req.params.filename}"`);
+      const canonicalUri = cdnUri.searchParams.get('canonicalUri');
+      if (canonicalUri) {
+        response.headers.set('Link', `<${canonicalUri}>; rel="canonical"`);
       }
+      return response;
+    } catch (error) {
+      return new Response("Unexpected Error fetching content", { status: 500 });
     }
-
-    const canonicalUri = cdnUri.searchParams.get('canonicalUri');
-
-    const s3Client = await s3ClientFactory();
-    const s3file = s3Client.file(cdnUri.pathname);
-    if (!(await s3file.exists())) {
-      return new Response("Not Found", { status: 404 });
-    }
-
-    const stream = s3file.stream();
-
-    const response = new Response(stream);
-    response.headers.set('Content-Disposition', `attachment; filename="${req.params.filename}"`);
-
-    // get file details to pass back with headers
-    const s3FileStat = await s3file.stat();
-    response.headers.set('Content-Length', s3FileStat.size.toString());
-    response.headers.set('Content-Type', s3FileStat.type);
-    response.headers.set('Etag', s3FileStat.etag);
-    response.headers.set('Last-Modified', s3FileStat.lastModified.toUTCString());
-
-    if (canonicalUri) {
-      response.headers.set('Link', `<${canonicalUri}>; rel="canonical"`);
-    }
-    return response;
   },
 });
+
+const httpProxy = async (uri: URL) => {
+  const upstreamResponse = await fetch(uri);
+
+  if (upstreamResponse.status === 404) {
+    return new Response("Not Found", { status: 404 });
+  }
+
+  if (upstreamResponse.status !== 200) {
+    return new Response(`Error fetching upstream content: ${upstreamResponse.status}`, { status: 500 });
+  }
+
+  const response = new Response(upstreamResponse.body, {
+    status: 200
+  });
+  const contentLength = upstreamResponse.headers.get('Content-Length');
+  const etag = upstreamResponse.headers.get('Etag');
+  const contentType = upstreamResponse.headers.get('Content-Type');
+  const lastModified = upstreamResponse.headers.get('Last-Modified');
+  if (contentLength) {
+    response.headers.set('Content-Length', contentLength);
+  }
+  if (etag) {
+    response.headers.set('Etag', etag);
+  }
+  if (contentType) {
+    response.headers.set('Content-Type', contentType);
+  }
+  if (lastModified) {
+    response.headers.set('Last-Modified', lastModified);
+  }
+
+  return response;
+}
+
+
+const s3Proxy = async (s3Client: S3Client, uri: URL) => {
+  const s3file = s3Client.file(uri.pathname);
+  if (!(await s3file.exists())) {
+    return new Response("Not Found", { status: 404 });
+  }
+
+  const stream = s3file.stream();
+
+  const response = new Response(stream);
+
+  // get file details to pass back with headers
+  const s3FileStat = await s3file.stat();
+  response.headers.set('Content-Length', s3FileStat.size.toString());
+  response.headers.set('Content-Type', s3FileStat.type);
+  response.headers.set('Etag', s3FileStat.etag);
+  response.headers.set('Last-Modified', s3FileStat.lastModified.toUTCString());
+
+  return response;
+}
