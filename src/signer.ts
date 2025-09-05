@@ -5,11 +5,7 @@ export const verifyUrl = (secret: string, url: string, hash: string): boolean =>
                 .update(url)
                 .digest("base64");
 
-  if (newHash !== hash) {
-    return false;
-  }
-
-  return true;
+  return newHash === hash;
 }
 
 export const createUrlHash = (secret: string, url: string): string => {
