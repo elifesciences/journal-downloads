@@ -322,7 +322,7 @@ describe('routes', async () => {
       filename,
     };
     const res = await routesWithSigner["/download/:id/:filename"](req);
-    expect(res.status).toBe(500);
-    expect(await res.text()).toBe("Error fetching upstream content: 418");
+    expect(res.status).toBe(502);
+    expect(await res.text()).toBe("Bad Gateway\n\nError fetching upstream content: 418");
   });
 });

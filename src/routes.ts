@@ -55,7 +55,7 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
       }
       return response;
     } catch (_error) {
-      return new Response("Unexpected Error fetching content", { status: 500 });
+      return new Response("Bad Gateway", { status: 502 });
     }
   },
 });
@@ -68,7 +68,7 @@ const httpProxy = async (uri: URL) => {
   }
 
   if (upstreamResponse.status !== 200) {
-    return new Response(`Error fetching upstream content: ${upstreamResponse.status}`, { status: 500 });
+    return new Response(`Bad Gateway\n\nError fetching upstream content: ${upstreamResponse.status}`, { status: 502 });
   }
 
   const response = new Response(upstreamResponse.body, {
