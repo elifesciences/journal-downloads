@@ -20,4 +20,4 @@ run = "bun test"
 run = 'docker buildx build . --load -t journal-downloads:{{arg(name="docker_image_tag", default="latest")}}'
 
 [tasks.generate-link]
-run = 'bun run src/generateDownloadLink.ts --url "{{ option(name="url") }}" --host "{{ option(name="host") }}" --filename "{{ option(name="filename") }}"'
+run = 'bun run src/generateDownloadLink.ts'
