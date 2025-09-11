@@ -91,9 +91,9 @@ const httpProxy = async (uri: URL, req: BunRequest) => {
     return new Response("Not Found", { status: 404 });
   }
 
-  if (upstreamResponse.status !== 200) {
+  if (!([200, 304].includes(upstreamResponse.status))) {
     console.log({
-      message: 'Upstream source failed to return 200 when retrieving the download',
+      message: 'Upstream source failed to return 200 or 304 when retrieving the download',
       status: upstreamResponse.status,
       uri,
     });
@@ -101,7 +101,7 @@ const httpProxy = async (uri: URL, req: BunRequest) => {
   }
 
   const response = new Response(upstreamResponse.body, {
-    status: 200
+    status: upstreamResponse.status
   });
 
   const headersToProxy = [
