@@ -63,7 +63,7 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
 });
 
 const httpProxy = async (uri: URL, req: BunRequest) => {
-  console.log('Retrieving file from HTTP', uri);
+  console.log('Retrieving file from HTTP', uri.toString());
   const upstreamRequestHeadersToProxy = [
     'Accept',
     'Cache-Control',
