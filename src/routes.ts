@@ -1,19 +1,24 @@
 import type { BunRequest, S3Client } from "bun";
-import { createLogger } from "./logger";
+import { createRequestLogger } from "./logger";
 import { verifyUrl } from "./signer";
 
 export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSignerSecret: string, proxyConfig: Map<string, URL>, allowedHosts: string[]) => ({
   "/download/:id/:filename": async (req: BunRequest<"/download/:id/:filename">) => {
-    const log = createLogger(req);
+    const logger = createRequestLogger();
+
     const url = URL.parse(req.url);
     if (!url) {
+      logger.log(404, 'Could not parse requests URL');
       return new Response("Not Found", { status: 404 });
     }
+    logger.context.set('url', url.toString());
 
     const hash = url?.searchParams.get('_hash');
     if (!hash) {
+      logger.log(404, 'Request with no signature');
       return new Response("Not Acceptable: no signature given", { status: 406 });
     }
+    logger.context.set('hash', hash);
 
     const hostHeader = req.headers.get('x-forwarded-host');
     if (hostHeader) {
@@ -21,6 +26,7 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
       const expectedHostOverride = hostHeader.split(',').map((host) => host.trim()).pop();
       // test if the last host override is allowed, then override
       if (expectedHostOverride && allowedHosts.includes(expectedHostOverride)) {
+        logger.context.set('hostOverride', expectedHostOverride);
         //override parts of the URL that we know will be different
         url.host = expectedHostOverride
         url.protocol = "https"
@@ -32,7 +38,7 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
     url.searchParams.delete('_hash');
 
     if (!verifyUrl(uriSignerSecret, url.toString(), hash)) {
-      log('Failed to verify the URL for the download', url.toString(), hash);
+      logger.log(406, 'Failed to verify the URL for the download');
       return new Response("Not Acceptable: invalid signature", { status: 406 });
     }
 
@@ -41,8 +47,10 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
 
     const cdnUri = URL.parse(atob(id));
     if (!cdnUri) {
+      logger.log(400, `CDN Uri could not be decoded or parsed: ${id}`);
       return new Response("Not Found", { status: 404 });
     }
+    logger.context.set('upstreamUrl', cdnUri.toString());
 
     // proxy S3 or http
     try {
@@ -50,14 +58,23 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
 
       let response: Response;
       if (!upstream) {
-        response = await httpProxy(cdnUri, req, log);
+        response = await httpProxy(cdnUri, req);
+        logger.context.set('type', 'HTTP');
       } else if (upstream.protocol === 's3:') {
-        response = await s3Proxy(await s3ClientFactory(), upstream.hostname, cdnUri.pathname, log);
+        response = await s3Proxy(await s3ClientFactory(), upstream.hostname, cdnUri.pathname);
+        logger.context.set('type', 'S3');
+        logger.context.set('bucket', upstream.hostname);
+        logger.context.set('key', cdnUri.pathname);
       } else {
-        response = await httpProxy(new URL(cdnUri.pathname, upstream), req, log);
+        const replacementUri = new URL(cdnUri.pathname, upstream);
+        response = await httpProxy(replacementUri, req);
+        logger.context.set('type', 'HTTP');
+        logger.context.set('originalUpstreamUrl', cdnUri.toString());
+        logger.context.set('upstreamUrl', replacementUri.toString());
       }
 
       if (response.status !== 200) {
+        logger.log(response.status, `${await response.text()}`);
         return response;
       }
 
@@ -66,16 +83,18 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
       if (canonicalUri) {
         response.headers.set('Link', `<${canonicalUri}>; rel="canonical"`);
       }
+
+      logger.log(200);
       return response;
-    } catch (_error) {
-      log("Failed to connect to the upstream source to retrieve the download", _error);
+    } catch (error) {
+      logger.context.set('error', error);
+      logger.log(502, 'Error while retrieving download');
       return new Response("Bad Gateway", { status: 502 });
     }
   },
 });
 
-const httpProxy = async (uri: URL, req: BunRequest, log: (...args: unknown[]) => void) => {
-  log('Retrieving file from HTTP', uri.toString());
+const httpProxy = async (uri: URL, req: BunRequest) => {
   const upstreamRequestHeadersToProxy = [
     'Accept',
     'Cache-Control',
@@ -104,11 +123,6 @@ const httpProxy = async (uri: URL, req: BunRequest, log: (...args: unknown[]) =>
   }
 
   if (!([200, 304].includes(upstreamResponse.status))) {
-    log({
-      message: 'Upstream source failed to return 200 or 304 when retrieving the download',
-      status: upstreamResponse.status,
-      uri,
-    });
     return new Response(`Bad Gateway\n\nError fetching upstream content: ${upstreamResponse.status}`, { status: 502 });
   }
 
@@ -135,8 +149,7 @@ const httpProxy = async (uri: URL, req: BunRequest, log: (...args: unknown[]) =>
   return response;
 }
 
-const s3Proxy = async (s3Client: S3Client, bucket: string, path: string, log: (...args: unknown[]) => void) => {
-  log('Retrieving file from S3', bucket, path);
+const s3Proxy = async (s3Client: S3Client, bucket: string, path: string) => {
   const s3file = s3Client.file(`${bucket}${path}`);
 
   if (!(await s3file.exists())) {
