@@ -46,7 +46,7 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
     try {
       const upstream = proxyConfig.get(cdnUri.host);
 
-      let response;
+      let response: Response;
       if (!upstream) {
         response = await httpProxy(cdnUri, req);
       } else if (upstream.protocol === 's3:') {
