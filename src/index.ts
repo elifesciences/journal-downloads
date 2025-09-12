@@ -7,10 +7,19 @@ if (!uriSignerSecret) {
   process.exit(1);
 }
 
-const cdnHost = process.env.CDN_HOST;
-if (!cdnHost) {
-  console.log('Cannot start without a cdn host')
-  process.exit(1);
+const proxyConfig = new Map<string, URL>();
+(process.env.PROXY_CONFIG ?? '').split(',').forEach((pair) => {
+  const parts = pair.split(':');
+  const source = parts.shift();
+  const target = parts.join(':');
+  if (source && target) {
+    proxyConfig.set(source.trim(), new URL(target.trim()));
+  }
+});
+
+if (proxyConfig.size === 0) {
+    console.log('Cannot start without a proxy config')
+    process.exit(1);
 }
 
 const allowedHosts = (process.env.ALLOWED_HOSTS ?? '').split(',').map((host) => host.trim());
@@ -18,6 +27,6 @@ const allowedHosts = (process.env.ALLOWED_HOSTS ?? '').split(',').map((host) => 
 Bun.serve({
   development: process.env.NODE_ENV === 'development',
   // `routes` requires Bun v1.2.3+
-  routes: createRoutes(createS3, uriSignerSecret, cdnHost, allowedHosts),
+  routes: createRoutes(createS3, uriSignerSecret, proxyConfig, allowedHosts),
   fetch: () => new Response("Not Found", { status: 404 }),
 });

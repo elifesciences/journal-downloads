@@ -17,8 +17,11 @@ const mockS3: S3Client = {
 };
 
 const signerKey = "totally-not-secret-for-tests";
-const cdnHost = "cdn.somewhere.tld";
-const routesWithSigner = createRoutes(async () => mockS3, signerKey, cdnHost, []);
+const proxyConfig = new Map<string, URL>();
+proxyConfig.set("cdn.somewhere.tld", new URL("s3://journal-cdn"));
+proxyConfig.set("iiif.elifesciences.org", new URL("http://iiif.test.internal"));
+
+const routesWithSigner = createRoutes(async () => mockS3, signerKey, proxyConfig, []);
 
 describe('routes', async () => {
   afterEach(() => {
@@ -29,8 +32,7 @@ describe('routes', async () => {
     const validID = btoa(fileUrl);
     const filename = "test.jpg";
 
-    //this URL needs to be a valid elifesciences host to be signed correctly
-    const requestUrl = `https://elifesciences.org/download/${validID}/${filename}`;
+    const requestUrl = `https://example.com/download/${validID}/${filename}`;
 
     const hash = createUrlHash(signerKey, requestUrl);
 
@@ -53,8 +55,7 @@ describe('routes', async () => {
     const wrongId = btoa('not a file');
     const filename = "test.jpg";
 
-    //this URL needs to be a valid elifesciences host to be signed correctly
-    const requestUrl = `https://elifesciences.org/download/${wrongId}/${filename}`;
+    const requestUrl = `https://example.com/download/${wrongId}/${filename}`;
 
     const hash = createUrlHash(signerKey, requestUrl);
 
@@ -74,7 +75,6 @@ describe('routes', async () => {
     const validID = btoa(fileUrl);
     const filename = "test.jpg";
 
-    //this URL needs to be a valid elifesciences host to be signed correctly
     const hashedUrl = `https://elifesciences.org/download/${validID}/${filename}`;
     const requestUrl = `https://test.elifesciences.org/download/${validID}/${filename}`;
 
@@ -90,7 +90,7 @@ describe('routes', async () => {
       filename,
     };
 
-    const routesWithSigner = createRoutes(async () => mockS3, signerKey, cdnHost, ['elifesciences.org']);
+    const routesWithSigner = createRoutes(async () => mockS3, signerKey, proxyConfig, ['elifesciences.org']);
     const res = await routesWithSigner["/download/:id/:filename"](req);
 
     expect(res.status).toBe(200);
@@ -102,7 +102,6 @@ describe('routes', async () => {
     const validID = btoa(fileUrl);
     const filename = "test.jpg";
 
-    //this URL needs to be a valid elifesciences host to be signed correctly
     const hashedUrl = `https://elifesciences.org/download/${validID}/${filename}`;
     const requestUrl = `https://test.elifesciences.org/download/${validID}/${filename}`;
 
@@ -118,7 +117,7 @@ describe('routes', async () => {
       filename,
     };
 
-    const routesWithSigner = createRoutes(async () => mockS3, signerKey, cdnHost, ['elifesciences.org']);
+    const routesWithSigner = createRoutes(async () => mockS3, signerKey, proxyConfig, ['elifesciences.org']);
     const res = await routesWithSigner["/download/:id/:filename"](req);
 
     expect(res.status).toBe(406);
@@ -131,8 +130,7 @@ describe('routes', async () => {
     const filename = "test.jpg";
     fileExistsMock.mockReturnValue(false);
 
-    //this URL needs to be a valid elifesciences host to be signed correctly
-    const requestUrl = `https://elifesciences.org/download/${validId}/${filename}`;
+    const requestUrl = `https://example.com/download/${validId}/${filename}`;
 
     const hash = createUrlHash(signerKey, requestUrl);
 
@@ -156,8 +154,7 @@ describe('routes', async () => {
     const validId = btoa(fileUrl);
     const filename = "test.jpg";
 
-    //this URL needs to be a valid elifesciences host to be signed correctly
-    const requestUrl = `https://elifesciences.org/download/${validId}/${filename}`;
+    const requestUrl = `https://example.com/download/${validId}/${filename}`;
 
     const hash = createUrlHash(signerKey, requestUrl);
 
@@ -178,8 +175,7 @@ describe('routes', async () => {
     const validId = btoa(fileUrl);
     const filename = "test.jpg";
 
-    //this URL needs to be a valid elifesciences host to be signed correctly
-    const requestUrl = `https://elifesciences.org/download/${validId}/${filename}`;
+    const requestUrl = `https://example.com/download/${validId}/${filename}`;
 
     const hash = createUrlHash(signerKey, requestUrl);
 
@@ -246,8 +242,7 @@ describe('routes', async () => {
       },
     });
 
-    //this URL needs to be a valid elifesciences host to be signed correctly
-    const requestUrl = `https://elifesciences.org/download/${wrongId}/${filename}`;
+    const requestUrl = `https://example.com/download/${wrongId}/${filename}`;
 
     const hash = createUrlHash(signerKey, requestUrl);
 
@@ -283,8 +278,7 @@ describe('routes', async () => {
       },
     });
 
-    //this URL needs to be a valid elifesciences host to be signed correctly
-    const requestUrl = `https://elifesciences.org/download/${wrongId}/${filename}`;
+    const requestUrl = `https://example.com/download/${wrongId}/${filename}`;
 
     const hash = createUrlHash(signerKey, requestUrl);
 
@@ -311,8 +305,7 @@ describe('routes', async () => {
       },
     });
 
-    //this URL needs to be a valid elifesciences host to be signed correctly
-    const requestUrl = `https://elifesciences.org/download/${wrongId}/${filename}`;
+    const requestUrl = `https://example.com/download/${wrongId}/${filename}`;
 
     const hash = createUrlHash(signerKey, requestUrl);
 
@@ -324,5 +317,35 @@ describe('routes', async () => {
     const res = await routesWithSigner["/download/:id/:filename"](req);
     expect(res.status).toBe(502);
     expect(await res.text()).toBe("Bad Gateway\n\nError fetching upstream content: 418");
+  });
+
+  it("should proxy content from iiif.elifesciences.org", async () => {
+    const fileUrl = "https://iiif.elifesciences.org/lax/21078%2Felife-21078-fig1-v1.tif/full/full/0/default.jpg";
+    const validID = btoa(fileUrl);
+    const filename = "elife-21078-fig1-v1.jpg";
+
+    // mock a successful response
+    fetchMock("http://iiif.test.internal/lax/21078%2Felife-21078-fig1-v1.tif/full/full/0/default.jpg", {
+      data: new Blob(["iiif content"]),
+      response: {
+        headers: new Headers({
+          "Content-Type": "image/jpeg",
+          "Content-Length": "12",
+        }),
+      },
+    });
+
+    const requestUrl = `https://example.com/download/${validID}/${filename}`;
+    const hash = createUrlHash(signerKey, requestUrl);
+
+    const req = new Request(`${requestUrl}?_hash=${encodeURIComponent(hash)}`) as BunRequest;
+    req.params = {
+      id: validID,
+      filename,
+    };
+    const res = await routesWithSigner["/download/:id/:filename"](req);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("iiif content");
+    expect(res.headers.get('content-type')).toBe("image/jpeg");
   });
 });

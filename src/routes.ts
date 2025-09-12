@@ -1,7 +1,7 @@
 import type { BunRequest, S3Client } from "bun";
 import { verifyUrl } from "./signer";
 
-export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSignerSecret: string, cdnHost: string, allowedHosts: string[]) => ({
+export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSignerSecret: string, proxyConfig: Map<string, URL>, allowedHosts: string[]) => ({
   "/download/:id/:filename": async (req: BunRequest<"/download/:id/:filename">) => {
     const url = URL.parse(req.url);
     if (!url) {
@@ -44,7 +44,17 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
 
     // proxy S3 or http
     try {
-      const response = cdnUri.host === cdnHost ? await s3Proxy(await s3ClientFactory(), cdnUri) : await httpProxy(cdnUri, req);
+      const upstream = proxyConfig.get(cdnUri.host);
+
+      let response;
+      if (!upstream) {
+        response = await httpProxy(cdnUri, req);
+      } else if (upstream.protocol === 's3:') {
+        response = await s3Proxy(await s3ClientFactory(), upstream.hostname, cdnUri.pathname);
+      } else {
+        response = await httpProxy(new URL(cdnUri.pathname, upstream), req);
+      }
+
       if (response.status !== 200) {
         return response;
       }
@@ -124,9 +134,9 @@ const httpProxy = async (uri: URL, req: BunRequest) => {
 }
 
 
-const s3Proxy = async (s3Client: S3Client, uri: URL) => {
-  console.log('Retrieving file from S3', uri.pathname);
-  const s3file = s3Client.file(uri.pathname);
+const s3Proxy = async (s3Client: S3Client, bucket: string, path: string) => {
+  console.log('Retrieving file from S3', bucket, path);
+  const s3file = s3Client.file(`${bucket}${path}`);
   if (!(await s3file.exists())) {
     return new Response("Not Found", { status: 404 });
   }
