@@ -3,6 +3,7 @@ import { clearMocks, mock as fetchMock } from "bun-bagel";
 import type { BunRequest, S3Client } from "bun";
 import { createRoutes } from "./routes";
 import { createUrlHash } from "./signer";
+import { setLogger } from './logger';
 
 const fileExistsMock = mock(() => true)
 
@@ -23,7 +24,26 @@ const routesWithSigner = createRoutes(async () => mockS3, signerKey, cdnHost, []
 describe('routes', async () => {
   afterEach(() => {
       clearMocks();
+      setLogger(() => {}); // silence logs for other tests
   });
+
+  it('should log when failing to verify a URL', async () => {
+    const log = mock(() => {});
+    setLogger(log);
+
+    const fileUrl = `https://cdn.somewhere.tld/test.jpg?canonicalUri=http://elifesciences.com/article/0`;
+    const validID = btoa(fileUrl);
+    const filename = "test.jpg";
+
+    const req = new Request(`https://example.com/download/${validID}/${filename}?_hash=blahblahblah`) as BunRequest;
+    req.params = {
+      id: validID,
+      filename,
+    };
+    await routesWithSigner["/download/:id/:filename"](req);
+    expect(log).toHaveBeenCalled();
+  });
+
   it("should succeed when an valid hash is passed", async () => {
     const fileUrl = `https://cdn.somewhere.tld/test.jpg?canonicalUri=http://elifesciences.com/article/0`;
     const validID = btoa(fileUrl);
