@@ -1,8 +1,10 @@
 import type { BunRequest, S3Client } from "bun";
+import { createLogger } from "./logger";
 import { verifyUrl } from "./signer";
 
 export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSignerSecret: string, proxyConfig: Map<string, URL>, allowedHosts: string[]) => ({
   "/download/:id/:filename": async (req: BunRequest<"/download/:id/:filename">) => {
+    const log = createLogger(req);
     const url = URL.parse(req.url);
     if (!url) {
       return new Response("Not Found", { status: 404 });
@@ -30,7 +32,7 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
     url.searchParams.delete('_hash');
 
     if (!verifyUrl(uriSignerSecret, url.toString(), hash)) {
-      console.log('Failed to verify the URL for the download', url.toString(), hash);
+      log('Failed to verify the URL for the download', url.toString(), hash);
       return new Response("Not Acceptable: invalid signature", { status: 406 });
     }
 
@@ -48,11 +50,11 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
 
       let response: Response;
       if (!upstream) {
-        response = await httpProxy(cdnUri, req);
+        response = await httpProxy(cdnUri, req, log);
       } else if (upstream.protocol === 's3:') {
-        response = await s3Proxy(await s3ClientFactory(), upstream.hostname, cdnUri.pathname);
+        response = await s3Proxy(await s3ClientFactory(), upstream.hostname, cdnUri.pathname, log);
       } else {
-        response = await httpProxy(new URL(cdnUri.pathname, upstream), req);
+        response = await httpProxy(new URL(cdnUri.pathname, upstream), req, log);
       }
 
       if (response.status !== 200) {
@@ -66,14 +68,14 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
       }
       return response;
     } catch (_error) {
-      console.log("Failed to connect to the upstream source to retrieve the download", _error);
+      log("Failed to connect to the upstream source to retrieve the download", _error);
       return new Response("Bad Gateway", { status: 502 });
     }
   },
 });
 
-const httpProxy = async (uri: URL, req: BunRequest) => {
-  console.log('Retrieving file from HTTP', uri.toString());
+const httpProxy = async (uri: URL, req: BunRequest, log: (...args: unknown[]) => void) => {
+  log('Retrieving file from HTTP', uri.toString());
   const upstreamRequestHeadersToProxy = [
     'Accept',
     'Cache-Control',
@@ -102,7 +104,7 @@ const httpProxy = async (uri: URL, req: BunRequest) => {
   }
 
   if (!([200, 304].includes(upstreamResponse.status))) {
-    console.log({
+    log({
       message: 'Upstream source failed to return 200 or 304 when retrieving the download',
       status: upstreamResponse.status,
       uri,
@@ -133,10 +135,10 @@ const httpProxy = async (uri: URL, req: BunRequest) => {
   return response;
 }
 
-
-const s3Proxy = async (s3Client: S3Client, bucket: string, path: string) => {
-  console.log('Retrieving file from S3', bucket, path);
+const s3Proxy = async (s3Client: S3Client, bucket: string, path: string, log: (...args: unknown[]) => void) => {
+  log('Retrieving file from S3', bucket, path);
   const s3file = s3Client.file(`${bucket}${path}`);
+
   if (!(await s3file.exists())) {
     return new Response("Not Found", { status: 404 });
   }

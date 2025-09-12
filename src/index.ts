@@ -1,9 +1,10 @@
 import { createRoutes } from "./routes";
 import { createS3 } from "./s3";
+import { logger } from "./logger";
 
 const uriSignerSecret = process.env.SECRET;
 if (!uriSignerSecret) {
-  console.log('Cannot start without a secret')
+  logger('Cannot start without a secret')
   process.exit(1);
 }
 
@@ -18,8 +19,8 @@ const proxyConfig = new Map<string, URL>();
 });
 
 if (proxyConfig.size === 0) {
-    console.log('Cannot start without a proxy config')
-    process.exit(1);
+  logger('Cannot start without a proxy config')
+  process.exit(1);
 }
 
 const allowedHosts = (process.env.ALLOWED_HOSTS ?? '').split(',').map((host) => host.trim());
