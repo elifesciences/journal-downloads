@@ -74,7 +74,8 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
       }
 
       if (response.status !== 200) {
-        logger.log(response.status, `${await response.text()}`);
+        const responseText = await response.clone().text();
+        logger.log(response.status, `${responseText}`);
         return response;
       }
 
