@@ -28,7 +28,7 @@ if (!values.url || !values.host || !values.filename) {
   process.exit(1);
 }
 
-const validID = btoa(values.url);
+const validID = btoa(values.url).replaceAll('+', '.').replaceAll('/', '_').replaceAll('=', '-');;
 const filename = values.filename;
 
 const requestUrl = `${values.host}/download/${validID}/${filename}`;
