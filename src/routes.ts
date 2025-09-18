@@ -157,7 +157,23 @@ const s3Proxy = async (s3Client: S3Client, bucket: string, path: string) => {
     return new Response("Not Found", { status: 404 });
   }
 
-  const stream = s3file.stream();
+  const stream = new ReadableStream({
+    async start(controller) {
+      const s3Stream = s3file.stream();
+      const reader = s3Stream.getReader();
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            break;
+          }
+          controller.enqueue(value);
+        }
+      } finally {
+      }
+      controller.close();
+    },
+  });
 
   const response = new Response(stream);
 
