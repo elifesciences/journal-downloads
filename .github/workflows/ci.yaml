@@ -21,7 +21,7 @@ jobs:
           run: echo "Nothing"
           post: mise implode -y
       - name: Install tools
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v3
       - name: Install deps
         run: mise install-deps
       - name: lint
