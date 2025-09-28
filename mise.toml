@@ -1,5 +1,5 @@
 [tools]
-bun = "latest"
+bun = "1.2.20"
 
 [tasks.dev]
 run = "bun run --watch src/index.ts"
