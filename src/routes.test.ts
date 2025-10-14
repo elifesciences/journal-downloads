@@ -368,4 +368,76 @@ describe('routes', async () => {
     expect(await res.text()).toBe("iiif content");
     expect(res.headers.get('content-type')).toBe("image/jpeg");
   });
+
+  it("should proxy to a different bucket based on path prefix", async () => {
+    const s3FileMock = mock((pathname: string) => ({
+      exists: () => Promise.resolve(true),
+      stream: () => new Blob([`content of ${pathname}`]).stream(),
+      stat: async () => ({ "etag": "ABC1234567890", "lastModified": new Date('2025-09-05T07:15:00'), "size": "12", "type": "text/plain"}),
+    }));
+    const mockS3WithFileMock: S3Client = {
+      // @ts-expect-error we only need to mock the methods we use
+      file: s3FileMock,
+    };
+
+    const prefixProxyConfig = new Map<string, URL>();
+    prefixProxyConfig.set("cdn.somewhere.tld", new URL("s3://journal-cdn"));
+    prefixProxyConfig.set("cdn.somewhere.tld/foo", new URL("s3://journal-cdn-foo"));
+
+    const routesWithPrefixSigner = createRoutes(async () => mockS3WithFileMock, signerKey, prefixProxyConfig, []);
+
+    const fileUrl = `https://cdn.somewhere.tld/foo/test.jpg`;
+    const validID = btoa(fileUrl);
+    const filename = "test.jpg";
+
+    const requestUrl = `https://example.com/download/${validID}/${filename}`;
+    const hash = createUrlHash(signerKey, requestUrl);
+
+    const req = new Request(`${requestUrl}?_hash=${encodeURIComponent(hash)}`) as BunRequest;
+    req.params = {
+      id: validID,
+      filename,
+    };
+    const res = await routesWithPrefixSigner["/download/:id/:filename"](req);
+
+    expect(res.status).toBe(200);
+    expect(s3FileMock).toHaveBeenCalledWith("journal-cdn-foo/foo/test.jpg");
+    expect(await res.text()).toBe("content of journal-cdn-foo/foo/test.jpg");
+  });
+
+  it("should proxy to the default bucket when no path prefix matches", async () => {
+    const s3FileMock = mock((pathname: string) => ({
+      exists: () => Promise.resolve(true),
+      stream: () => new Blob([`content of ${pathname}`]).stream(),
+      stat: async () => ({ "etag": "ABC1234567890", "lastModified": new Date('2025-09-05T07:15:00'), "size": "12", "type": "text/plain"}),
+    }));
+    const mockS3WithFileMock: S3Client = {
+      // @ts-expect-error we only need to mock the methods we use
+      file: s3FileMock,
+    };
+
+    const prefixProxyConfig = new Map<string, URL>();
+    prefixProxyConfig.set("cdn.somewhere.tld", new URL("s3://journal-cdn"));
+    prefixProxyConfig.set("cdn.somewhere.tld/foo", new URL("s3://journal-cdn-foo"));
+
+    const routesWithPrefixSigner = createRoutes(async () => mockS3WithFileMock, signerKey, prefixProxyConfig, []);
+
+    const fileUrl = `https://cdn.somewhere.tld/bar/test.jpg`;
+    const validID = btoa(fileUrl);
+    const filename = "test.jpg";
+
+    const requestUrl = `https://example.com/download/${validID}/${filename}`;
+    const hash = createUrlHash(signerKey, requestUrl);
+
+    const req = new Request(`${requestUrl}?_hash=${encodeURIComponent(hash)}`) as BunRequest;
+    req.params = {
+      id: validID,
+      filename,
+    };
+    const res = await routesWithPrefixSigner["/download/:id/:filename"](req);
+
+    expect(res.status).toBe(200);
+    expect(s3FileMock).toHaveBeenCalledWith("journal-cdn/bar/test.jpg");
+    expect(await res.text()).toBe("content of journal-cdn/bar/test.jpg");
+  });
 });

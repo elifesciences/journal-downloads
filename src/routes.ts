@@ -2,16 +2,19 @@ import type { BunRequest, S3Client } from "bun";
 import { createRequestLogger } from "./logger";
 import { verifyUrl } from "./signer";
 
-const findUpstream = (cdnUri: URL, proxyConfig: Map<string, URL>): { upstream: URL, path: string } | undefined => {
-  const upstream = proxyConfig.get(cdnUri.host);
-  if (!upstream) {
-    return undefined;
+const findProxyUpstream = (cdnUri: URL, proxyConfig: Map<string, URL>): { upstream: URL, key: string } | undefined => {
+  const target = cdnUri.host + cdnUri.pathname;
+
+  const matchingEntries = Array.from(proxyConfig.entries())
+    .filter(([key, _]) => target.startsWith(key))
+    .sort(([keyA, _], [keyB, __]) => keyB.length - keyA.length);
+
+  if (matchingEntries.length > 0) {
+    const [bestMatchKey, upstream] = matchingEntries[0];
+    return { upstream, key: bestMatchKey };
   }
 
-  return {
-    upstream,
-    path: cdnUri.pathname,
-  };
+  return undefined;
 }
 
 export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSignerSecret: string, proxyConfig: Map<string, URL>, allowedHosts: string[]) => ({
@@ -66,14 +69,15 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
 
     // proxy S3 or http
     try {
-      const match = findUpstream(cdnUri, proxyConfig);
+      const match = findProxyUpstream(cdnUri, proxyConfig);
 
       let response: Response;
       if (!match) {
         response = await httpProxy(cdnUri, req);
         logger.context.set('type', 'HTTP');
       } else {
-        const { upstream, path } = match;
+        const { upstream } = match;
+        const path = cdnUri.pathname;
         if (upstream.protocol === 's3:') {
           response = await s3Proxy(await s3ClientFactory(), upstream.hostname, path);
           logger.context.set('type', 'S3');
