@@ -2,6 +2,18 @@ import type { BunRequest, S3Client } from "bun";
 import { createRequestLogger } from "./logger";
 import { verifyUrl } from "./signer";
 
+const findUpstream = (cdnUri: URL, proxyConfig: Map<string, URL>): { upstream: URL, path: string } | undefined => {
+  const upstream = proxyConfig.get(cdnUri.host);
+  if (!upstream) {
+    return undefined;
+  }
+
+  return {
+    upstream,
+    path: cdnUri.pathname,
+  };
+}
+
 export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSignerSecret: string, proxyConfig: Map<string, URL>, allowedHosts: string[]) => ({
   "/download/:id/:filename": async (req: BunRequest<"/download/:id/:filename">) => {
     const logger = createRequestLogger();
@@ -54,23 +66,26 @@ export const createRoutes = (s3ClientFactory: () => Promise<S3Client>, uriSigner
 
     // proxy S3 or http
     try {
-      const upstream = proxyConfig.get(cdnUri.host);
+      const match = findUpstream(cdnUri, proxyConfig);
 
       let response: Response;
-      if (!upstream) {
+      if (!match) {
         response = await httpProxy(cdnUri, req);
         logger.context.set('type', 'HTTP');
-      } else if (upstream.protocol === 's3:') {
-        response = await s3Proxy(await s3ClientFactory(), upstream.hostname, cdnUri.pathname);
-        logger.context.set('type', 'S3');
-        logger.context.set('bucket', upstream.hostname);
-        logger.context.set('key', cdnUri.pathname);
       } else {
-        const replacementUri = new URL(cdnUri.pathname, upstream);
-        response = await httpProxy(replacementUri, req);
-        logger.context.set('type', 'HTTP');
-        logger.context.set('originalUpstreamUrl', cdnUri.toString());
-        logger.context.set('upstreamUrl', replacementUri.toString());
+        const { upstream, path } = match;
+        if (upstream.protocol === 's3:') {
+          response = await s3Proxy(await s3ClientFactory(), upstream.hostname, path);
+          logger.context.set('type', 'S3');
+          logger.context.set('bucket', upstream.hostname);
+          logger.context.set('key', path);
+        } else {
+          const replacementUri = new URL(path, upstream);
+          response = await httpProxy(replacementUri, req);
+          logger.context.set('type', 'HTTP');
+          logger.context.set('originalUpstreamUrl', cdnUri.toString());
+          logger.context.set('upstreamUrl', replacementUri.toString());
+        }
       }
 
       if (response.status !== 200) {
